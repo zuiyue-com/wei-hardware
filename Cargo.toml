@@ -1,0 +1,12 @@
+[package]
+name = "wei-hardware"
+version = "0.1.0"
+edition = "2021"
+description = "wei hardware"
+documentation = "https://github.com/zuiyue-com/wei-hardware"
+homepage = "https://github.com/zuiyue-com/wei-hardware"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+sysinfo = "0.29.0"
+sys-info = "0.9.1"
