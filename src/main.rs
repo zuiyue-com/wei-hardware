@@ -13,6 +13,9 @@ use sysinfo::{SystemExt, DiskExt};
 
 use sys_info::*;
 
+#[macro_use]
+extern crate wei_log;
+
 #[derive(Serialize)]
 struct HardwareInfo {
     uuid: String,
@@ -118,7 +121,7 @@ async fn send_heartbeat(hardware_info_json: &str) {
 
 fn uuid() -> std::string::String {
     // 添加token文件的名字
-    let binding = crate::env::uuid_dir();
+    let binding = wei_env::uuid_dir();
     let token_file_path = Path::new(&binding);
 
     // 检查token文件是否存在
@@ -139,9 +142,9 @@ fn uuid() -> std::string::String {
 
 fn user_read() -> Result<String, Box<dyn std::error::Error>> {
     let current_file = Path::new("./user.dat");
-    let home_file = Path::new(&crate::env::home_dir()?).join("user.dat");
+    let home_file = Path::new(&wei_env::home_dir()?).join("user.dat");
     let root_file = Path::new("/root/user.dat");
-    let binding = crate::env::user_dir();
+    let binding = wei_env::user_dir();
     let user_dir = Path::new(&binding);
 
     if let Some(line) = get_first_line_from_file(current_file)? {
