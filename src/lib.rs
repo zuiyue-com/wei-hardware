@@ -9,7 +9,6 @@ extern crate wei_log;
 
 #[derive(Serialize, Debug)]
 pub struct HardwareInfo {
-    uuid: String,
     os_info: OsInfo,
     cpu_info: CpuInfo,
     gpu_info: Vec<GpuInfo>,
@@ -73,12 +72,32 @@ pub async fn uuid() -> String {
     }
 }
 
-pub async fn info() -> String {
+pub async fn all() -> String {
     let uuid = uuid().await;
 
     if uuid == "" {
         return "{}".to_string();
     }
+
+    let hardware: serde_json::Value = serde_json::from_str(&info().await).unwrap();
+    let net: serde_json::Value = serde_json::from_str(&get_net_info().unwrap()).unwrap();
+    let images: serde_json::Value = serde_json::from_str(&wei_run::run("wei-docker", vec!["image_list"]).unwrap()).unwrap();
+    let containers: serde_json::Value = serde_json::from_str(&wei_run::run("wei-docker", vec!["container_ps"]).unwrap()).unwrap();
+
+    let data = serde_json::json!({
+        "code" : 200,
+        "uuid" : uuid,
+        "hardware" : hardware,
+        "net" : net,
+        "images" : images,
+        "containers" : containers,
+    });
+
+    data.to_string()
+    // serde_json::to_string_pretty(&data).unwrap()
+}
+
+pub async fn info() -> String {
 
     let os_info = OsInfo {
         os_type: os_type().unwrap(),
@@ -90,7 +109,6 @@ pub async fn info() -> String {
     let mem_info = get_mem_info().unwrap(); 
     let disks_info = get_disk_info().unwrap();
     let hardware_info = HardwareInfo {
-        uuid,
         os_info,
         cpu_info,
         gpu_info,
@@ -310,4 +328,33 @@ pub fn get_disk_info() -> Result<Vec<DiskInfo>, Box<dyn std::error::Error>> {
     Ok(disks)
 }
 
+
+pub fn get_net_info() -> Result<String, Box<dyn std::error::Error>> {
+    let output = match std::process::Command::new("powershell")
+    .args(&[
+        "Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | ForEach-Object {
+            $adapter = $_
+            $stats = Get-NetAdapterStatistics -Name $adapter.Name
+            $ip = Get-NetIPAddress -InterfaceIndex $adapter.ifIndex | Where-Object { $_.AddressFamily -eq 'IPv4' }
+            
+            [PSCustomObject]@{
+                name = $adapter.InterfaceDescription
+                status = $adapter.Status
+                mac = $adapter.MacAddress
+                ip = $ip.IPAddress
+                received = $stats.ReceivedBytes
+                sent = $stats.SentBytes
+            }
+        } | ConvertTo-Json"
+    ])
+    .output() {
+        Ok(data) => data,
+        Err(_) => return Ok("".to_string())
+    };
+
+    match std::str::from_utf8(&output.stdout) {
+        Ok(data) => Ok(data.to_string()),
+        Err(_) => Ok("".to_string())
+    }
+}
 

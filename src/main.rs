@@ -1,4 +1,6 @@
 #[tokio::main]
 async fn main() {
-    println!("{}", wei_hardware::info().await);
+    let data: serde_json::Value = serde_json::from_str(&wei_hardware::all().await).unwrap();
+    println!("{}", serde_json::to_string_pretty(&data).unwrap());
 }
+
