@@ -4,3 +4,8 @@ async fn main() {
     println!("{}", serde_json::to_string_pretty(&data).unwrap());
 }
 
+
+// #[tokio::main]
+// async fn main() {
+//     println!("{}", wei_hardware::get_ip_info().await);
+// }
