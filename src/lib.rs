@@ -76,12 +76,6 @@ pub async fn uuid() -> String {
 }
 
 pub async fn all() -> String {
-    let uuid = uuid().await;
-
-    if uuid == "" {
-        return "{}".to_string();
-    }
-
     info!("check: hardware");
     let hardware_path = format!("{}cache/hardware.json",wei_env::home_dir().unwrap());
     let mut hardware = read_file_if_recent(hardware_path.clone(), 30 * 60).unwrap();
@@ -141,9 +135,6 @@ pub async fn all() -> String {
     let containers: serde_json::Value = serde_json::from_str(&wei_run::run("wei-docker", vec!["container_ps"]).unwrap()).unwrap();
 
     let data = serde_json::json!({
-        "code" : 200,
-        "uuid" : uuid,
-        "tech_type" : "docker",
         "hardware" : hardware,
         "network" : net,
         "images" : images,
