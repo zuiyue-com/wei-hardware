@@ -468,13 +468,13 @@ use std::io;
 use std::time::SystemTime;
 
 #[derive(Serialize)]
-struct FileInfo {
+pub struct FileInfo {
     path: String,
     size: u64,
     creation_time: u64,
 }
 
-fn get_file_info(path: String) -> String {
+pub fn get_file_info(path: String) -> String {
     let path = Path::new(&path);
     let mut files_info = Vec::new();
 
@@ -483,7 +483,7 @@ fn get_file_info(path: String) -> String {
     json
 }
 
-fn visit_dirs(dir: &Path, files_info: &mut Vec<FileInfo>) -> io::Result<()> {
+pub fn visit_dirs(dir: &Path, files_info: &mut Vec<FileInfo>) -> io::Result<()> {
     if dir.is_dir() {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
@@ -499,7 +499,7 @@ fn visit_dirs(dir: &Path, files_info: &mut Vec<FileInfo>) -> io::Result<()> {
     Ok(())
 }
 
-fn file_info(entry: &DirEntry) -> FileInfo {
+pub fn file_info(entry: &DirEntry) -> FileInfo {
     let path = entry.path();
     let metadata = entry.metadata().unwrap_or_else(|_| panic!("无法获取元数据"));
 
