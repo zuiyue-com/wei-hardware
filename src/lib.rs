@@ -455,9 +455,15 @@ pub fn get_net_info() -> Result<String, Box<dyn std::error::Error>> {
         Err(_) => return Ok("".to_string())
     };
 
-    match std::str::from_utf8(&output.stdout) {
-        Ok(data) => Ok(data.to_string()),
-        Err(_) => Ok("".to_string())
+    let data = match std::str::from_utf8(&output.stdout) {
+        Ok(data) => data.to_string(),
+        Err(_) => "".to_string()
+    };
+
+    if data.starts_with('{') {
+        Ok(format!("[{}]", data))
+    } else {
+        Ok(data)
     }
 }
 
