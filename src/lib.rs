@@ -134,6 +134,15 @@ pub async fn all() -> String {
     info!("check: containers");
     let containers: serde_json::Value = serde_json::from_str(&wei_run::run("wei-docker", vec!["container_ps"]).unwrap()).unwrap();
 
+    info!("check: docker installed");
+    let docker_status = wei_run::run("wei-docker", vec!["is_installed"]).unwrap();
+    let docker_status: serde_json::Value = serde_json::from_str(&docker_status).unwrap();
+    let docker_status = if docker_status["code"].as_i64().unwrap() == 200 {
+        true
+    } else {
+        false
+    };
+
     let data = serde_json::json!({
         "hardware" : hardware,
         "network" : net,
@@ -141,6 +150,7 @@ pub async fn all() -> String {
         "containers" : containers,
         "models" : models,
         "ip" : ip,
+        "docker_installed": docker_status
     });
 
     data.to_string()
