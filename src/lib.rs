@@ -139,10 +139,17 @@ pub async fn all() -> String {
     let docker_status: serde_json::Value = serde_json::from_str(&docker_status).unwrap();
     let docker_is_installed = docker_status["is_installed"].as_bool().unwrap_or(false);
 
-    info!("check: docker service started");
+    // host_service_up docker 是否已经开启0没1开
+    info!("check: docker service is started");
     let docker_status = wei_run::run("wei-docker", vec!["is_started"]).unwrap();
     let docker_status: serde_json::Value = serde_json::from_str(&docker_status).unwrap();
-    let docker_is_started = docker_status["is_started"].as_bool().unwrap_or(false);
+    let docker_is_started = docker_status["is_started"].as_str().unwrap_or("0");
+
+    //host_service_up_default docker 默认开启吗0不1开
+    info!("check: docker service is autorun?");
+    let docker_status = wei_run::run("wei-docker", vec!["is_autorun"]).unwrap();
+    let docker_status: serde_json::Value = serde_json::from_str(&docker_status).unwrap();
+    let docker_is_autorun = docker_status["data"].as_str().unwrap_or("0");
 
     let data = serde_json::json!({
         "hardware" : hardware,
@@ -152,7 +159,8 @@ pub async fn all() -> String {
         "models" : models,
         "ip" : ip,
         "docker_installed": docker_is_installed,
-        "docker_started": docker_is_started
+        "host_service_up": docker_is_started,
+        "host_service_up_default": docker_is_autorun
     });
 
     data.to_string()
