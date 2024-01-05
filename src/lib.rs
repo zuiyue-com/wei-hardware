@@ -143,7 +143,7 @@ pub async fn all() -> String {
     info!("check: docker service is started");
     let docker_status = wei_run::run("wei-docker", vec!["is_started"]).unwrap();
     let docker_status: serde_json::Value = serde_json::from_str(&docker_status).unwrap();
-    let docker_is_started = docker_status["is_started"].as_str().unwrap_or("0");
+    let docker_is_started = docker_status["is_start"].as_str().unwrap_or("0");
 
     //host_service_up_default docker 默认开启吗0不1开
     info!("check: docker service is autorun?");
