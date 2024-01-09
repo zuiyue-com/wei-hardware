@@ -125,7 +125,10 @@ pub async fn all() -> String {
     }
     let ip: serde_json::Value = match serde_json::from_str(&ip) {
         Ok(data) => data,
-        Err(_) => serde_json::from_str(&get_ip_info().await).unwrap()
+        Err(_) => match serde_json::from_str(&get_ip_info().await) {
+            Ok(data) => data,
+            Err(_) => serde_json::from_str("{}").unwrap()
+        }
     };
     
 
