@@ -20,6 +20,7 @@ pub struct HardwareInfo {
 
 #[derive(Serialize, Debug)]
 pub struct OsInfo {
+    hostname: String,
     os_type: String,
     version: String,
     bitness: String
@@ -104,16 +105,28 @@ pub async fn all() -> String {
         Err(_) => serde_json::from_str(&get_net_info().unwrap()).unwrap()
     };
 
-    info!("check: models");
-    let models_path = format!("{}cache/models.json",wei_env::home_dir().unwrap());
-    let mut models = read_file_if_recent(models_path.clone(), 10 * 60).unwrap();
-    if models == "" {
-        models = get_file_info("models".to_string());
-        write_to_file(models_path, &models).unwrap();
+    info!("check: model");
+    let model_path = format!("{}cache/model.json",wei_env::home_dir().unwrap());
+    let mut model = read_file_if_recent(model_path.clone(), 10 * 60).unwrap();
+    if model == "" {
+        model = get_file_info("model".to_string());
+        write_to_file(model_path, &model).unwrap();
     }
-    let models: serde_json::Value = match serde_json::from_str(&models) {
+    let model: serde_json::Value = match serde_json::from_str(&model) {
         Ok(data) => data,
-        Err(_) => serde_json::from_str(&get_file_info("models".to_string())).unwrap()
+        Err(_) => serde_json::from_str(&get_file_info("model".to_string())).unwrap()
+    };
+
+    info!("check: train");
+    let train_path = format!("{}cache/train.json",wei_env::home_dir().unwrap());
+    let mut train = read_file_if_recent(train_path.clone(), 10 * 60).unwrap();
+    if train == "" {
+        train = get_file_info("train".to_string());
+        write_to_file(train_path, &train).unwrap();
+    }
+    let train: serde_json::Value = match serde_json::from_str(&train) {
+        Ok(data) => data,
+        Err(_) => serde_json::from_str(&get_file_info("train".to_string())).unwrap()
     };
 
     info!("check: ip");
@@ -159,7 +172,8 @@ pub async fn all() -> String {
         "network" : net,
         "images" : images,
         "containers" : containers,
-        "models" : models,
+        "model" : model,
+        "train" : train,
         "ip" : ip,
         "docker_installed": docker_is_installed,
         "host_service_up": docker_is_started,
@@ -172,8 +186,17 @@ pub async fn all() -> String {
 pub async fn info() -> String {
 
     let info = os_info::get();
+    
+    let hostname = match hostname::get() {
+        Ok(hostname) => hostname,
+        Err(err) => {
+            info!("获取主机名失败:{}", err);
+            "".into()
+        }
+    };
 
     let os_info = OsInfo {
+        hostname: hostname.to_string_lossy().into_owned(),
         os_type: info.os_type().to_string(),
         version: info.version().to_string(),
         bitness: info.bitness().to_string(),
