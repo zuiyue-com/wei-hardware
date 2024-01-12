@@ -10,7 +10,9 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 wei-log = "0.2.10"
 wei-env = "0.2.13"
-wei-run ={ path = "../wei-run" }
+wei-run = { path = "../wei-run" }
+wei-api = { path = "../wei-api" }
+single-instance = "0.3"
 tokio = { version = "1.28.1", features = ["full"] }
 sysinfo = "0.29.0"
 sys-info = "0.9.1"
