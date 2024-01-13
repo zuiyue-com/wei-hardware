@@ -117,6 +117,13 @@ pub async fn all() -> String {
         Err(_) => serde_json::from_str(&get_file_info("model".to_string())).unwrap()
     };
 
+    info!("check: mode.json timestamp");
+    // 读取mode.json的时间戳
+    let model_json_timestamp = match std::fs::metadata(&model_path) {
+        Ok(metadata) => metadata.modified().unwrap().elapsed().unwrap().as_secs(),
+        Err(_) => 0
+    };
+
     info!("check: train");
     let train_path = format!("{}cache/train.json",wei_env::home_dir().unwrap());
     let mut train = read_file_if_recent(train_path.clone(), 10 * 60).unwrap();
@@ -127,6 +134,13 @@ pub async fn all() -> String {
     let train: serde_json::Value = match serde_json::from_str(&train) {
         Ok(data) => data,
         Err(_) => serde_json::from_str(&get_file_info("train".to_string())).unwrap()
+    };
+
+    info!("check: train.json timestamp");
+    // 读取train.json的时间戳
+    let train_json_timestamp = match std::fs::metadata(&train_path) {
+        Ok(metadata) => metadata.modified().unwrap().elapsed().unwrap().as_secs(),
+        Err(_) => 0
     };
 
     info!("check: ip");
@@ -173,7 +187,9 @@ pub async fn all() -> String {
         "images" : images,
         "containers" : containers,
         "model" : model,
+        "model_timestamp" : model_json_timestamp,
         "train" : train,
+        "train_timestamp" : train_json_timestamp,
         "ip" : ip,
         "docker_installed": docker_is_installed,
         "host_service_up": docker_is_started,
