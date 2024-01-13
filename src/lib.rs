@@ -110,7 +110,7 @@ pub async fn all() -> String {
     let mut model = read_file_if_recent(model_path.clone(), 10 * 60).unwrap();
     if model == "" {
         model = get_file_info("model".to_string());
-        write_to_file(model_path, &model).unwrap();
+        write_to_file(model_path.clone(), &model).unwrap();
     }
     let model: serde_json::Value = match serde_json::from_str(&model) {
         Ok(data) => data,
@@ -118,18 +118,15 @@ pub async fn all() -> String {
     };
 
     info!("check: mode.json timestamp");
-    // 读取mode.json的时间戳
-    let model_json_timestamp = match std::fs::metadata(&model_path) {
-        Ok(metadata) => metadata.modified().unwrap().elapsed().unwrap().as_secs(),
-        Err(_) => 0
-    };
+    let model_json_timestamp = wei_file::get_timestamp(&model_path).unwrap_or(0);
 
+    
     info!("check: train");
     let train_path = format!("{}cache/train.json",wei_env::home_dir().unwrap());
     let mut train = read_file_if_recent(train_path.clone(), 10 * 60).unwrap();
     if train == "" {
         train = get_file_info("train".to_string());
-        write_to_file(train_path, &train).unwrap();
+        write_to_file(train_path.clone(), &train).unwrap();
     }
     let train: serde_json::Value = match serde_json::from_str(&train) {
         Ok(data) => data,
@@ -137,11 +134,7 @@ pub async fn all() -> String {
     };
 
     info!("check: train.json timestamp");
-    // 读取train.json的时间戳
-    let train_json_timestamp = match std::fs::metadata(&train_path) {
-        Ok(metadata) => metadata.modified().unwrap().elapsed().unwrap().as_secs(),
-        Err(_) => 0
-    };
+    let train_json_timestamp = wei_file::get_timestamp(&model_path).unwrap_or(0);
 
     info!("check: ip");
     let ip_path = format!("{}cache/ip.json",wei_env::home_dir().unwrap());

@@ -1455,6 +1455,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "wei-file"
+version = "0.1.0"
+
+[[package]]
 name = "wei-hardware"
 version = "0.1.0"
 dependencies = [
@@ -1470,6 +1474,7 @@ dependencies = [
  "uuid",
  "wei-api",
  "wei-env",
+ "wei-file",
  "wei-log",
  "wei-run",
 ]
