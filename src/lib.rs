@@ -121,20 +121,20 @@ pub async fn all() -> String {
     let model_json_timestamp = wei_file::get_timestamp(&model_path).unwrap_or(0);
 
     
-    info!("check: train");
-    let train_path = format!("{}cache/train.json",wei_env::home_dir().unwrap());
-    let mut train = read_file_if_recent(train_path.clone(), 10 * 60).unwrap();
-    if train == "" {
-        train = get_file_info("train".to_string());
-        write_to_file(train_path.clone(), &train).unwrap();
+    info!("check: dataset");
+    let dataset_path = format!("{}cache/dataset.json",wei_env::home_dir().unwrap());
+    let mut dataset = read_file_if_recent(dataset_path.clone(), 10 * 60).unwrap();
+    if dataset == "" {
+        dataset = get_file_info("dataset".to_string());
+        write_to_file(dataset_path.clone(), &dataset).unwrap();
     }
-    let train: serde_json::Value = match serde_json::from_str(&train) {
+    let dataset: serde_json::Value = match serde_json::from_str(&dataset) {
         Ok(data) => data,
-        Err(_) => serde_json::from_str(&get_file_info("train".to_string())).unwrap()
+        Err(_) => serde_json::from_str(&get_file_info("dataset".to_string())).unwrap()
     };
 
-    info!("check: train.json timestamp");
-    let train_json_timestamp = wei_file::get_timestamp(&model_path).unwrap_or(0);
+    info!("check: dataset.json timestamp");
+    let dataset_json_timestamp = wei_file::get_timestamp(&model_path).unwrap_or(0);
 
     info!("check: ip");
     let ip_path = format!("{}cache/ip.json",wei_env::home_dir().unwrap());
@@ -181,8 +181,8 @@ pub async fn all() -> String {
         "containers" : containers,
         "model" : model,
         "model_timestamp" : model_json_timestamp,
-        "train" : train,
-        "train_timestamp" : train_json_timestamp,
+        "dataset" : dataset,
+        "dataset_timestamp" : dataset_json_timestamp,
         "ip" : ip,
         "docker_installed": docker_is_installed,
         "host_service_up": docker_is_started,
@@ -460,6 +460,7 @@ pub fn get_mem_info() -> Result<MemoryInfo, Box<dyn Error>> {
 }
 
 pub fn get_disk_info() -> Result<Vec<DiskInfo>, Box<dyn std::error::Error>> {
+    info!("获取磁盘信息");
     let output = match std::process::Command::new("powershell")
         .args(&[
             "Get-PhysicalDisk",
@@ -477,11 +478,19 @@ pub fn get_disk_info() -> Result<Vec<DiskInfo>, Box<dyn std::error::Error>> {
             }
         };
 
-    let output_str = std::str::from_utf8(&output.stdout).unwrap();
+    let data = std::str::from_utf8(&output.stdout).unwrap();
+
+    // 如果只有一个结果会出错
+    let data = if data.starts_with('{') {
+        format!("[{}]", data)
+    } else {
+        data.to_string()
+    };
 
     // 解析JSON格式的输出
-    let disks: Vec<DiskInfo> = serde_json::from_str(output_str).unwrap_or_else(|_| vec![]);
+    let disks: Vec<DiskInfo> = serde_json::from_str(&data).unwrap_or_else(|_| vec![]);
 
+    info!("disk vec: {:?}", disks);
 
     Ok(disks)
 }
