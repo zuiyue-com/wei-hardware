@@ -8,7 +8,6 @@ async fn main() {
     wei_windows::init();
     wei_env::bin_init("wei-hardware");
 
-    use single_instance::SingleInstance;
     let instance = wei_single::SingleInstance::new("wei-hardware").unwrap();
     if !instance.is_single() { 
         std::process::exit(1);
