@@ -64,7 +64,12 @@ pub struct DiskInfo {
     #[serde(rename = "Model")]
     name: String,
     #[serde(rename = "Size")]
-    size: u64,
+    size: String,
+    mount_point: String,
+    available_space: String,
+    file_system: String,
+    total_space: String,
+    kind: String,
 }
 
 pub async fn uuid() -> String {
@@ -323,12 +328,24 @@ pub async fn get_cpu_info() -> Result<CpuInfo, Box<dyn Error>> {
 pub async fn get_gpu_info() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
     // 需要先区分是N卡还是A卡，还是国产显卡，再使用不同的命令来获取信息
 
+    #[cfg(target_os = "windows")]
     let gpu_info_output = match std::process::Command::new("cmd")
         .args(&["/C", "wmic path win32_videocontroller get name"])
         .output() {
             Ok(output) => output,
             Err(_) => {
                 info!("wmic path win32_videocontroller get name 执行失败");
+                return Err("执行命令失败".into());
+            },
+        };
+
+    #[cfg(not(target_os = "windows"))]
+    let gpu_info_output = match std::process::Command::new("lspci")
+        .args(&["-v", "-s", "$(lspci | grep VGA | awk '{print $1}')"])
+        .output() {
+            Ok(output) => output,
+            Err(_) => {
+                info!("lspci 执行失败");
                 return Err("执行命令失败".into());
             },
         };
@@ -459,6 +476,35 @@ pub fn get_mem_info() -> Result<MemoryInfo, Box<dyn Error>> {
     })
 }
 
+#[cfg(not(target_os = "windows"))]
+pub fn get_disk_info() -> Result<Vec<DiskInfo>, Box<dyn std::error::Error>> {
+    info!("获取磁盘信息");
+    use sysinfo::{
+        Disks, System,
+    };
+
+    let _ = System::new_all();
+
+    let disks = Disks::new_with_refreshed_list();
+    let mut disk_vec: Vec<DiskInfo> = vec![];
+
+    for disk in &disks {
+        disk_vec.push(DiskInfo {
+            media_type: format!("{:?}", disk.kind()),
+            name: format!("{:?}", disk.name()),
+            size: format!("{:?}", disk.total_space()),
+            mount_point: format!("{:?}", disk.mount_point()),
+            available_space: format!("{:?}", disk.available_space()),
+            file_system: format!("{:?}", disk.file_system()),
+            total_space: format!("{:?}", disk.total_space()),
+            kind: format!("{:?}", disk.kind()),
+        });
+    }
+
+    Ok(disk_vec)
+}
+
+#[cfg(target_os = "windows")]
 pub fn get_disk_info() -> Result<Vec<DiskInfo>, Box<dyn std::error::Error>> {
     info!("获取磁盘信息");
     let output = match std::process::Command::new("powershell")
@@ -495,7 +541,50 @@ pub fn get_disk_info() -> Result<Vec<DiskInfo>, Box<dyn std::error::Error>> {
     Ok(disks)
 }
 
+#[cfg(not(target_os = "windows"))]
+pub fn get_net_info() -> Result<String, Box<dyn std::error::Error>> {
+    use serde_json::Value;
+    use std::process::Command;
+    let output = Command::new("ip")
+        .arg("-j")
+        .arg("a")
+        .output()
+        .expect("Failed to execute command");
 
+    let output_str = String::from_utf8(output.stdout).unwrap();
+    let interfaces: Value = serde_json::from_str(&output_str).unwrap();
+
+    let mut net_info = vec![];
+
+    for interface in interfaces.as_array().unwrap() {
+        let name = interface["ifname"].as_str().unwrap();
+        let mac = match interface["address"].as_str() {
+            Some(mac) => mac,
+            None => ""
+        };
+        let ip = match interface["addr_info"][0]["local"].as_str() {
+            Some(ip) => ip,
+            None => ""
+        };
+        let status = interface["operstate"].as_str().unwrap();
+
+        net_info.push(json!({
+            "name": name,
+            "status": status,
+            "mac": mac,
+            "ip": ip,
+            "received": 0,
+            "sent": 0
+        }));
+    }
+
+    // net_info 转为 json
+    let net_info_json = serde_json::to_string(&net_info).unwrap();
+
+    Ok(net_info_json)
+}
+
+#[cfg(target_os = "windows")]
 pub fn get_net_info() -> Result<String, Box<dyn std::error::Error>> {
     let output = match std::process::Command::new("powershell")
     .args(&[
