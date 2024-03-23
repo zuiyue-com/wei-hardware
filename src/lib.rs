@@ -4,8 +4,6 @@ use serde_json::Value;
 use tokio::process::Command;
 use std::error::Error;
 
-use sys_info::*;
-
 #[macro_use]
 extern crate wei_log;
 
@@ -341,7 +339,6 @@ pub async fn get_gpu_info() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
 
     #[cfg(not(target_os = "windows"))]
     let gpu_info_output = match std::process::Command::new("lspci")
-        .args(&["-v", "-s", "$(lspci | grep VGA | awk '{print $1}')"])
         .output() {
             Ok(output) => output,
             Err(_) => {
@@ -448,6 +445,7 @@ pub async fn enable_gpu_persistence_mode() -> Result<(), Box<dyn Error>> {
     }
 }
 
+#[cfg(target_os = "windows")]
 pub fn get_mem_info() -> Result<MemoryInfo, Box<dyn Error>> {
     let mem = mem_info()?;
 
@@ -473,6 +471,21 @@ pub fn get_mem_info() -> Result<MemoryInfo, Box<dyn Error>> {
         free: mem.free,
         buffers: mem.buffers,
         cached: mem.cached,
+    })
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn get_mem_info() -> Result<MemoryInfo, Box<dyn Error>> {
+    let mut sys = sysinfo::System::new_all();
+    
+    // First we update all information of our `System` struct.
+    sys.refresh_all();
+
+    Ok(MemoryInfo {
+        total: sys.total_memory(),
+        free: sys.free_memory(),
+        buffers: 0,
+        cached: 0,
     })
 }
 
@@ -543,7 +556,6 @@ pub fn get_disk_info() -> Result<Vec<DiskInfo>, Box<dyn std::error::Error>> {
 
 #[cfg(not(target_os = "windows"))]
 pub fn get_net_info() -> Result<String, Box<dyn std::error::Error>> {
-    use serde_json::Value;
     use std::process::Command;
     let output = Command::new("ip")
         .arg("-j")
