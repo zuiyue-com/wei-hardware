@@ -19,7 +19,7 @@ async fn main() {
     loop {
         let config_data: serde_json::Value = serde_json::from_str(&wei_hardware::all(i).await).unwrap();
         let client = match reqwest::Client::builder()
-        .timeout(Duration::from_secs(30))
+        .timeout(tokio::time::Duration::from_secs(30))
         .build() {
             Ok(client) => client,
             Err(e) => {
