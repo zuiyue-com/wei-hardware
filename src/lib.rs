@@ -79,11 +79,21 @@ pub async fn uuid() -> String {
     }
 }
 
-pub async fn all() -> String {
+pub async fn all(i: i64) -> String {
     info!("check: hardware");
+    let mut uptime = 10000.0;
+    match uptime_lib::get() {
+        Ok(data) => {
+            uptime = data.as_secs_f64();
+        }
+        Err(err) => {
+            info!("获取系统运行时间失败:{}", err);
+        }
+    }
+
     let hardware_path = format!("{}cache/hardware.json",wei_env::home_dir().unwrap());
     let mut hardware = read_file_if_recent(hardware_path.clone(), 30 * 60).unwrap();
-    if hardware == "" {
+    if uptime < 600.0 && i == 0 {
         hardware = info().await;
         write_to_file(hardware_path.clone(), &hardware).unwrap();
     }
@@ -227,8 +237,9 @@ pub async fn info() -> String {
             }
         },
     };
-
+    
     let gpu_info = get_gpu_info().await.unwrap();
+    
     let mem_info = match get_mem_info() {
         Ok(mem_info) => mem_info,
         Err(_) => {
@@ -255,6 +266,7 @@ pub async fn info() -> String {
     hardware_info_json.to_string()
 }
 
+#[cfg(target_os = "windows")]
 pub async fn get_cpu_info() -> Result<CpuInfo, Box<dyn Error>> {
     let cpu_serial_output = match std::process::Command::new("cmd")
     .args(&["/C", "wmic cpu get ProcessorId"])
@@ -321,6 +333,49 @@ pub async fn get_cpu_info() -> Result<CpuInfo, Box<dyn Error>> {
         speed,
         core_num
     })
+}
+
+#[cfg(not(target_os = "windows"))]
+pub async fn get_cpu_info() -> Result<CpuInfo, Box<dyn Error>> {
+    let output = match std::process::Command::new("sh")
+        .arg("-c")
+        .arg("LC_ALL=C lscpu")
+        .output() {
+            Ok(output) => output,
+            Err(_) => {
+                info!("lscpu 执行失败");
+                return Err("执行命令失败".into());
+            },
+        };
+
+    let output_str = std::str::from_utf8(&output.stdout).unwrap();
+
+    let uuid = "".to_string();
+    let mut name = "".to_string();
+    let mut num = 0;
+    let mut speed = 0;
+    let mut core_num = 0;
+
+    for line in output_str.lines() {
+        if line.starts_with("CPU(s):") {
+            num = line.split(':').nth(1).unwrap().trim().parse::<u32>().unwrap();
+        } else if line.starts_with("Model name:") {
+            name = line.split(':').nth(1).unwrap().trim().to_string();
+        } else if line.starts_with("CPU MHz:") {
+            speed = (line.split(':').nth(1).unwrap().trim().parse::<f64>().unwrap() * 1000.0) as u64;
+        } else if line.starts_with("Core(s) per socket:") {
+            core_num = line.split(':').nth(1).unwrap().trim().parse::<u32>().unwrap();
+        }
+    }
+
+    Ok(CpuInfo {
+        uuid,
+        name,
+        num,
+        speed,
+        core_num
+    })
+
 }
 
 pub async fn get_gpu_info() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
@@ -393,7 +448,7 @@ async fn nvidia() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
         Ok(output) => output,
         Err(_) => {
             info!("nvidia-smi 执行失败");
-            return Err("执行命令失败".into());
+            return Ok(vec![]);
         },
     };
 
@@ -414,10 +469,10 @@ async fn nvidia() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
             })
             .collect();
 
-        Ok(gpu_info)
-    } else {
-        Err(format!("Command failed with error: {:?}", output.stderr).into())
+        return Ok(gpu_info);
     }
+
+    Ok(vec![])
 }
 
 fn split_gpu_info(gpu_info: &str) -> Vec<Vec<String>> {
@@ -779,7 +834,10 @@ pub async fn get_ip_info() -> String {
 }
 
 async fn ip_chaxun() -> Result<String, Box<dyn std::error::Error>> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+    .timeout(Duration::from_secs(30))
+    .build()?;
+    
     let mut header = reqwest::header::HeaderMap::new();
     header.insert("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
     (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36".parse().unwrap());
@@ -800,7 +858,10 @@ async fn ip_chaxun() -> Result<String, Box<dyn std::error::Error>> {
 }
 
 pub async fn ip_pconline() -> Result<String, Box<dyn std::error::Error>> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+    .timeout(Duration::from_secs(30))
+    .build()?;
+
     let mut header = reqwest::header::HeaderMap::new();
     header.insert("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
     (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36".parse().unwrap());
@@ -820,7 +881,11 @@ pub async fn ip_pconline() -> Result<String, Box<dyn std::error::Error>> {
 }
 
 pub async fn ip_csdn() -> Result<String, Box<dyn std::error::Error>> {
-    let client = reqwest::Client::new();
+    // reqwest 超时时间设置
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()?;
+
     let mut header = reqwest::header::HeaderMap::new();
     header.insert("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
     (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36".parse().unwrap());
