@@ -81,19 +81,19 @@ pub async fn uuid() -> String {
 
 pub async fn all(i: i64) -> String {
     info!("check: hardware");
-    let mut uptime = 10000.0;
-    match uptime_lib::get() {
-        Ok(data) => {
-            uptime = data.as_secs_f64();
-        }
-        Err(err) => {
-            info!("获取系统运行时间失败:{}", err);
-        }
-    }
+    // let mut uptime = 10000.0;
+    // match uptime_lib::get() {
+    //     Ok(data) => {
+    //         uptime = data.as_secs_f64();
+    //     }
+    //     Err(err) => {
+    //         info!("获取系统运行时间失败:{}", err);
+    //     }
+    // }
 
     let hardware_path = format!("{}cache/hardware.json",wei_env::home_dir().unwrap());
     let mut hardware = read_file_if_recent(hardware_path.clone(), 30 * 60).unwrap();
-    if uptime < 600.0 && i == 0 {
+    if i == 0 { //uptime < 600.0 && 
         hardware = info().await;
         write_to_file(hardware_path.clone(), &hardware).unwrap();
     }
@@ -186,6 +186,15 @@ pub async fn all(i: i64) -> String {
     let docker_status = wei_run::run("wei-docker", vec!["is_autorun"]).unwrap();
     let docker_status: serde_json::Value = serde_json::from_str(&docker_status).unwrap();
     let docker_is_autorun = docker_status["data"].as_str().unwrap_or("0");
+    let qemu = format!("{}/qemu.dat",wei_env::home_dir().unwrap());
+    let qemu = std::fs::read_to_string(qemu).unwrap_or("0".to_string());
+    let qemu = qemu.trim();
+
+    let mut tech_type = "docker";
+
+    if qemu == "1" {
+        tech_type = "qemu";
+    }
 
     let data = serde_json::json!({
         "hardware" : hardware,
@@ -199,7 +208,8 @@ pub async fn all(i: i64) -> String {
         "ip" : ip,
         "docker_installed": docker_is_installed,
         "host_service_up": docker_is_started,
-        "host_service_up_default": docker_is_autorun
+        "host_service_up_default": docker_is_autorun,
+        "tech_type": tech_type
     });
 
     data.to_string()
@@ -413,7 +423,16 @@ pub async fn get_gpu_info() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
 
         // 根据显卡名称区分不同品牌
         if name.contains("NVIDIA") {
-            return Ok(nvidia().await?);
+            match nvidia().await {
+                Ok(gpu_info) => {
+                    return Ok(gpu_info);
+                },
+                Err(_) => {
+                    info!("获取NVIDIA显卡信息失败");
+                },
+            }
+
+            return Ok(nvidia_lspci().await?);
         } else if name.contains("AMD") {
             // println!("AMD显卡: {}", name);
         } else if name.contains("华为") {
@@ -439,6 +458,48 @@ pub async fn get_gpu_info() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
     // ])
 }
 
+async fn nvidia_lspci() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
+    let output = std::process::Command::new("sh")
+        .arg("-c")
+        .arg("lspci | grep NVIDIA")
+        .output()
+        .expect("failed to execute process");
+
+    let output_str = String::from_utf8(output.stdout).unwrap();
+
+    info!("nvidia lspci: {}", output_str);
+
+    let re = regex::Regex::new(r"(?P<bus_id>\d+:\d+\.0) .*?: (?P<manufacturer>NVIDIA Corporation) (?P<device>.*?) (\[(?P<model>.*?)\])? \((?P<rev>.*?)\)").unwrap();
+
+    let mut i = 0;
+    let mut gpu_info: Vec<GpuInfo> = vec![];
+
+    for line in output_str.lines() {
+        if let Some(cap) = re.captures(line) {
+            let name = if &cap["model"] != "" {
+                cap["model"].to_string()
+            } else {
+                cap["device"].to_string()
+            };
+        
+            gpu_info.push(GpuInfo {
+                index: i.to_string(),
+                name: name,
+                uuid: "".to_string(),
+                gpu_bus_id: format!("0000:{}", &cap["bus_id"].replace(".0", "")),
+                memory_used: "".to_string(),
+                memory_total: "".to_string(),
+                temperature: "".to_string(),
+                power_draw: "".to_string(),
+            });
+
+            i += 1;
+        }
+    }
+
+    Ok(gpu_info)
+}
+
 async fn nvidia() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
     let output = match Command::new("nvidia-smi")
     .arg("--query-gpu=index,name,uuid,gpu_bus_id,memory.used,memory.total,temperature.gpu,power.draw")
@@ -447,13 +508,16 @@ async fn nvidia() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
     .await {
         Ok(output) => output,
         Err(_) => {
-            info!("nvidia-smi 执行失败");
-            return Ok(vec![]);
+            return Err("nvidia-smi 执行失败".into());
         },
     };
 
     if output.status.success() {
         let output = String::from_utf8_lossy(&output.stdout);
+
+        if output.contains("NVIDIA-SMI has failed") {
+            return Err("nvidia-smi 执行失败".into());
+        }
 
         let gpu_info: Vec<GpuInfo> = split_gpu_info(&output)
             .into_iter()
@@ -472,7 +536,7 @@ async fn nvidia() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
         return Ok(gpu_info);
     }
 
-    Ok(vec![])
+    Err("nvidia-smi 执行失败".into())
 }
 
 fn split_gpu_info(gpu_info: &str) -> Vec<Vec<String>> {
