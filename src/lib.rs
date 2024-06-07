@@ -186,15 +186,9 @@ pub async fn all(i: i64) -> String {
     let docker_status = wei_run::run("wei-docker", vec!["is_autorun"]).unwrap();
     let docker_status: serde_json::Value = serde_json::from_str(&docker_status).unwrap();
     let docker_is_autorun = docker_status["data"].as_str().unwrap_or("0");
-    let qemu = format!("{}/qemu.dat",wei_env::home_dir().unwrap());
-    let qemu = std::fs::read_to_string(qemu).unwrap_or("0".to_string());
-    let qemu = qemu.trim();
-
-    let mut tech_type = "docker";
-
-    if qemu == "1" {
-        tech_type = "qemu";
-    }
+    let tech_type = format!("{}/tech_type.dat",wei_env::home_dir().unwrap());
+    let tech_type = std::fs::read_to_string(tech_type).unwrap_or("docker".to_string());
+    let tech_type = tech_type.trim();
 
     let data = serde_json::json!({
         "hardware" : hardware,
