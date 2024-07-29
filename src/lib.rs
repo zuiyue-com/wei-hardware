@@ -79,7 +79,7 @@ pub async fn uuid() -> String {
     }
 }
 
-pub async fn all(i: i64) -> String {
+pub async fn all() -> String {
     info!("check: hardware");
     // let mut uptime = 10000.0;
     // match uptime_lib::get() {
@@ -93,7 +93,7 @@ pub async fn all(i: i64) -> String {
 
     let hardware_path = format!("{}cache/hardware.json",wei_env::home_dir().unwrap());
     let mut hardware = read_file_if_recent(hardware_path.clone(), 30 * 60).unwrap();
-    if i == 0 { //uptime < 600.0 && 
+    if hardware == "" {
         hardware = info().await;
         write_to_file(hardware_path.clone(), &hardware).unwrap();
     }
@@ -385,6 +385,8 @@ pub async fn get_cpu_info() -> Result<CpuInfo, Box<dyn Error>> {
 pub async fn get_gpu_info() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
     // 需要先区分是N卡还是A卡，还是国产显卡，再使用不同的命令来获取信息
 
+    info!("获取显卡信息");
+
     #[cfg(target_os = "windows")]
     let gpu_info_output = match std::process::Command::new("cmd")
         .args(&["/C", "wmic path win32_videocontroller get name"])
@@ -406,14 +408,20 @@ pub async fn get_gpu_info() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
             },
         };
 
+    info!("获取显卡信息成功");
+
     let gpu_info_str = std::str::from_utf8(&gpu_info_output.stdout).unwrap();
 
+    info!("显卡信息: {}", gpu_info_str);
+
     // 解析并打印显卡信息
-    for line in gpu_info_str.lines().skip(1) {
+    for line in gpu_info_str.lines() {
         let name = line.trim();
         if name.is_empty() {
             continue;
         }
+
+        println!("显卡: {}", name);
 
         // 根据显卡名称区分不同品牌
         if name.contains("NVIDIA") {
@@ -494,7 +502,7 @@ async fn nvidia_lspci() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
     Ok(gpu_info)
 }
 
-async fn nvidia() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
+pub async fn nvidia() -> Result<Vec<GpuInfo>, Box<dyn Error>> {
     let output = match Command::new("nvidia-smi")
     .arg("--query-gpu=index,name,uuid,gpu_bus_id,memory.used,memory.total,temperature.gpu,power.draw")
     .arg("--format=csv,noheader")

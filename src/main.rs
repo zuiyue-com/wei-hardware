@@ -5,6 +5,18 @@ extern crate wei_log;
 
 #[tokio::main]
 async fn main() {
+
+    // test code
+    // match wei_hardware::get_gpu_info().await {
+    //     Ok(data) => {
+    //         println!("nvidia:{:?}", data);
+    //     },
+    //     Err(e) => {
+    //         println!("nvidia error:{:?}", e);
+    //     }
+    // }
+
+
     wei_windows::init();
     wei_env::bin_init("wei-hardware");
 
@@ -13,10 +25,8 @@ async fn main() {
         std::process::exit(1);
     };
 
-    let mut i = 0;
-
     loop {
-        let config_data: serde_json::Value = serde_json::from_str(&wei_hardware::all(i).await).unwrap();
+        let config_data: serde_json::Value = serde_json::from_str(&wei_hardware::all().await).unwrap();
         let client = match reqwest::Client::builder()
         .timeout(tokio::time::Duration::from_secs(30))
         .build() {
@@ -51,7 +61,6 @@ async fn main() {
 
         info!("hardware response:{}", &response.text().await.unwrap());
         tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
-        i = i + 1;
     }
 }
 
