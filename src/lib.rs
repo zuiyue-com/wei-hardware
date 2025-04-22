@@ -568,30 +568,29 @@ pub async fn enable_gpu_persistence_mode() -> Result<(), Box<dyn Error>> {
 
 #[cfg(target_os = "windows")]
 pub fn get_mem_info() -> Result<MemoryInfo, Box<dyn Error>> {
-    let mem = mem_info()?;
-
-    let memory_output = match std::process::Command::new("cmd")
+    let total_output = std::process::Command::new("cmd")
         .args(&["/C", "wmic ComputerSystem get TotalPhysicalMemory"])
-        .output() {
-            Ok(output) => output,
-            Err(_) => {
-                info!("wmic ComputerSystem get TotalPhysicalMemory 执行失败");
-                return Err("执行命令失败".into());
-            }
-        };
+        .output()?;
+    let total_str = std::str::from_utf8(&total_output.stdout)?
+        .lines()
+        .nth(1)
+        .ok_or("Failed to get total memory")?;
+    let total = total_str.trim().parse::<u64>()?;
 
-    let mut memory_str = std::str::from_utf8(&memory_output.stdout).unwrap();
-
-    // 解析并打印内存总量
-    if let Some(line) = memory_str.lines().nth(1) {
-        memory_str = line.trim();
-    }
+    let free_output = std::process::Command::new("cmd")
+        .args(&["/C", "wmic OS get FreePhysicalMemory"])
+        .output()?;
+    let free_str = std::str::from_utf8(&free_output.stdout)?
+        .lines()
+        .nth(1)
+        .ok_or("Failed to get free memory")?;
+    let free = free_str.trim().parse::<u64>()? * 1024; // Convert KB to Bytes
 
     Ok(MemoryInfo {
-        total: memory_str.parse::<u64>().unwrap(),
-        free: mem.free,
-        buffers: mem.buffers,
-        cached: mem.cached,
+        total,
+        free,
+        buffers: 0,
+        cached: 0,
     })
 }
 
